@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Тир-лист</title>
+<style>
+:root{--bg:#f3f1ec;--panel:#fff;--ink:#1d1d22;--mute:#6b6b75;--line:#d9d6cf;--cell:#2a2a31;--cellink:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17171b;--panel:#222228;--ink:#eeeef2;--mute:#9a9aa6;--line:#3a3a44;--cell:#101014}}
+:root[data-theme="dark"]{--bg:#17171b;--panel:#222228;--ink:#eeeef2;--mute:#9a9aa6;--line:#3a3a44;--cell:#101014}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Trebuchet MS","Segoe UI",system-ui,sans-serif}
+main{max-width:var(--mw,1180px);margin:0 auto;padding:20px 14px 60px}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:16px;align-items:start}
+@media (max-width:820px){.wrap{grid-template-columns:1fr}}
+aside{position:sticky;top:12px;background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:12px}
+aside h2{font-size:16px;margin:0 0 8px}
+aside .empty{color:var(--mute);font-size:14px}
+aside .big{width:100%;max-height:230px;object-fit:contain;background:var(--cell);border-radius:6px;display:block}
+aside input.cin{font:inherit;width:100%;margin:8px 0;padding:8px;border:2px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+aside .ask{font-size:13px;color:var(--mute);margin:4px 0}
+aside .opts{display:flex;flex-direction:column;gap:5px}
+aside .opts button{font:inherit;font-weight:700;border:0;border-radius:6px;padding:8px;cursor:pointer;color:#111;text-align:left}
+aside .opts button.down{background:transparent;color:var(--ink);border:2px dashed var(--line);text-align:center}
+aside .skip{margin-top:8px;background:none;border:0;color:var(--mute);cursor:pointer;font:inherit;text-decoration:underline;padding:0}
+.pal{width:250px}
+#st{color:var(--mute);font-size:14px;align-self:center}
+.pal input[type=color]{width:100%;height:32px;border:0;padding:0;background:none;cursor:pointer}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:0 0 16px}
+input.title{font:inherit;font-size:20px;font-weight:700;width:100%;background:transparent;color:var(--ink);border:0;border-bottom:2px dashed var(--line);padding:6px 0;margin-bottom:14px}
+.tiers{border:2px solid var(--cell);background:var(--cell);border-radius:6px;overflow:hidden}
+.tier{display:flex;min-height:var(--cs,88px);border-bottom:2px solid var(--cell)}
+.tier:last-child{border-bottom:0}
+.label{flex:0 0 var(--lw,96px);display:flex;align-items:center;justify-content:center;padding:6px;color:#111;font-weight:800;font-size:var(--ls,20px);text-align:center;word-break:break-word;cursor:pointer;position:relative}
+.label[contenteditable="true"]{outline:2px solid #fff;cursor:text}
+.drop{flex:1;display:flex;flex-wrap:wrap;gap:4px;padding:4px;background:var(--cell);align-content:flex-start;min-width:0}
+.drop.over,.pool.over{background:#3b3b52}
+.tools{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:4px;background:var(--cell)}
+.tools button{background:none;border:0;color:#aaa;cursor:pointer;font-size:15px;padding:2px 6px;border-radius:4px}
+.tools button:hover{color:#fff;background:#444}
+.card{width:var(--cs,88px);background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden;cursor:grab;position:relative;display:flex;flex-direction:column}
+.card.drag{opacity:.35}
+.card img{width:100%;height:var(--cs,88px);object-fit:cover;display:block;pointer-events:none}
+.card .cap{font-size:var(--fs,12px);line-height:1.2;padding:3px 4px;min-height:22px;text-align:center;color:var(--ink);word-break:break-word;outline:0}
+.card .cap:empty::before{content:"подпись";color:var(--mute)}
+.card .cap:focus{background:rgba(120,120,255,.2)}
+.card .x{position:absolute;top:2px;right:2px;width:20px;height:20px;border:0;border-radius:50%;background:rgba(0,0,0,.65);color:#fff;font-size:13px;line-height:1;cursor:pointer;display:none}
+.card:hover .x{display:block}
+@media (hover:none){.card .x{display:block}}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 10px}
+button.btn,label.btn{font:inherit;font-weight:600;background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:9px 14px;cursor:pointer}
+button.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--line)}
+.pool{min-height:120px;border:2px dashed var(--line);border-radius:6px;padding:6px;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;background:var(--panel)}
+.pool h3{width:100%;margin:2px 4px;font-size:14px;color:var(--mute)}
+.pool .hint{color:var(--mute);padding:14px;margin:auto}
+#file{display:none}
+.pal{position:fixed;z-index:20;display:none;gap:6px;flex-wrap:wrap;width:190px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.3)}
+.pal i{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid var(--panel)}
+.set{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 18px;background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.set label{display:flex;flex-direction:column;font-size:13px;color:var(--mute);gap:2px}
+.set label b{color:var(--ink);font-weight:600}
+.set input[type=range]{width:100%;accent-color:var(--ink)}
+.set button{grid-column:1/-1;justify-self:start;font:inherit;font-size:13px;background:none;border:0;color:var(--mute);text-decoration:underline;cursor:pointer;padding:0}
+</style>
+</head>
+<body>
+<main>
+<h1>Тир-лист</h1>
+<p class="sub">Загрузите картинку справа, подпишите её и выберите, в какой ряд положить. Потом её можно перетаскивать. Название ряда — клик, цвет — ◐.</p>
+<input class="title" id="title" value="Мой тир-лист" aria-label="Название">
+<div class="wrap">
+<div>
+<div class="set" id="set">
+<label>Размер картинок: <b id="v-cs"></b><input type="range" id="r-cs" min="56" max="220" step="2"></label>
+<label>Текст подписей: <b id="v-fs"></b><input type="range" id="r-fs" min="9" max="30"></label>
+<label>Текст названий рядов: <b id="v-ls"></b><input type="range" id="r-ls" min="12" max="56"></label>
+<label>Ширина названий рядов: <b id="v-lw"></b><input type="range" id="r-lw" min="60" max="220" step="2"></label>
+<label>Ширина таблицы: <b id="v-mw"></b><input type="range" id="r-mw" min="760" max="2200" step="20"></label>
+<button id="szReset">Сбросить размеры</button>
+</div>
+<div class="tiers" id="tiers"></div>
+<div class="bar">
+<button class="btn alt" id="addTier">Добавить ряд</button>
+<button class="btn alt" id="reset">Вернуть всё вниз</button>
+<button class="btn" id="exp">Скачать PNG</button>
+<button class="btn alt" id="clear">Новый тир-лист</button>
+<span id="st"></span>
+</div>
+<div class="pool" id="pool"><h3>Под таблицей</h3></div>
+</div>
+<aside>
+<h2>Новая картинка</h2>
+<label class="btn" for="file" style="display:block;text-align:center;margin-bottom:10px">Выбрать файлы</label>
+<input type="file" id="file" accept="image/*" multiple>
+<div id="side"></div>
+</aside>
+</div>
+</main>
+<div class="pal" id="pal"></div>
+<script>
+var COLORS=["#ff3b3b","#ff8c1a","#ffc400","#ffee00","#7ddc1f","#00d95f","#00d4d4","#1e90ff","#4a5cff","#9b3dff","#ff2ec4","#b8b8b8"];
+var PAL=COLORS.concat(["#d90429","#e85d04","#f9a826","#c6e600","#12b886","#00bfa5","#0077b6","#0050ff","#6a1b9a","#c200fb","#e0004d","#ff6fa5","#8d5524","#ffffff","#7a7a7a","#222222"]);
+var queue=[],side=document.getElementById("side");
+var DEF=[["S",0],["A",1],["B",2],["C",4],["D",7],["F",9]];
+var tiers=document.getElementById("tiers"),pool=document.getElementById("pool"),pal=document.getElementById("pal"),dragged=null,palFor=null;
+
+function dropZone(el){
+  el.addEventListener("dragover",function(e){e.preventDefault();el.classList.add("over")});
+  el.addEventListener("dragleave",function(){el.classList.remove("over")});
+  el.addEventListener("drop",function(e){
+    e.preventDefault();el.classList.remove("over");
+    if(dragged){el.appendChild(dragged);}
+    
+  });
+}
+function addTier(name,ci){
+  var col=typeof ci==="number"?COLORS[ci%COLORS.length]:ci;
+  var t=document.createElement("div");t.className="tier";
+  var l=document.createElement("div");l.className="label";l.textContent=name;l.style.background=col;l.dataset.tier="1";l.title="Нажмите, чтобы переименовать";
+  l.onclick=function(){if(l.contentEditable!=="true"){l.contentEditable="true";l.focus();}};
+  l.onblur=function(){l.contentEditable="false";renderSide()};
+  l.onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();l.blur();}};
+  var d=document.createElement("div");d.className="drop";dropZone(d);
+  var tl=document.createElement("div");tl.className="tools";
+  var c=document.createElement("button");c.textContent="◐";c.title="Цвет";c.onclick=function(e){e.stopPropagation();palFor=l;var r=c.getBoundingClientRect();pal.style.display="flex";pal.style.top=Math.max(8,Math.min(r.bottom,innerHeight-200))+"px";pal.style.left=Math.max(8,r.left-260)+"px";};
+  var u=document.createElement("button");u.textContent="▲";u.title="Выше";u.onclick=function(){if(t.previousElementSibling)tiers.insertBefore(t,t.previousElementSibling);renderSide()};
+  var w=document.createElement("button");w.textContent="▼";w.title="Ниже";w.onclick=function(){if(t.nextElementSibling)tiers.insertBefore(t.nextElementSibling,t);renderSide()};
+  var x=document.createElement("button");x.textContent="✕";x.title="Удалить ряд";x.onclick=function(){while(d.firstChild)pool.appendChild(d.firstChild);t.remove();renderSide();};
+  [c,u,w,x].forEach(function(b){tl.appendChild(b)});
+  t.appendChild(l);t.appendChild(d);t.appendChild(tl);tiers.appendChild(t);renderSide();
+}
+function addCard(src,cap,target){
+  var c=document.createElement("div");c.className="card";c.draggable=true;
+  var im=document.createElement("img");im.src=src;im.alt="";
+  var p=document.createElement("div");p.className="cap";p.contentEditable="true";p.textContent=cap||"";
+  p.onkeydown=function(e){if(e.key==="Enter"){e.preventDefault();p.blur();}};
+  p.addEventListener("mousedown",function(){c.draggable=false});
+  p.addEventListener("blur",function(){c.draggable=true});
+  var x=document.createElement("button");x.className="x";x.textContent="×";x.title="Удалить";x.onclick=function(){c.remove()};
+  c.addEventListener("dragstart",function(e){dragged=c;c.classList.add("drag");e.dataTransfer.setData("text/plain","card");});
+  c.addEventListener("dragend",function(){dragged=null;c.classList.remove("drag")});
+  c.appendChild(im);c.appendChild(p);c.appendChild(x);(target||pool).appendChild(c);
+}
+function readImg(f){
+  return new Promise(function(res){
+    var u=URL.createObjectURL(f),im=new Image();
+    im.onload=function(){
+      var m=Math.max(im.width,im.height),k=Math.min(1,480/m),c=document.createElement("canvas");
+      c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
+      res(c.toDataURL("image/webp",.9));
+    };
+    im.onerror=function(){URL.revokeObjectURL(u);res(null)};im.src=u;
+  });
+}
+function addFiles(fs){
+  var list=Array.prototype.filter.call(fs,function(f){return /^image\//.test(f.type)});
+  Promise.all(list.map(function(f){return readImg(f).then(function(src){return src&&{src:src,name:f.name.replace(/\.[^.]+$/,"")}})})).then(function(r){
+    r.forEach(function(q){if(q)queue.push(q)});renderSide();
+  });
+}
+function renderSide(){
+  side.innerHTML="";
+  if(!queue.length){side.innerHTML='<p class="empty">Здесь появится загруженная картинка. Можно перетащить файлы в любое место страницы.</p>';return;}
+  var q=queue[0];
+  var im=document.createElement("img");im.className="big";im.src=q.src;im.alt="";
+  var inp=document.createElement("input");inp.className="cin";inp.placeholder="Подпись к картинке";inp.value=q.name;
+  inp.oninput=function(){q.name=inp.value};
+  var ask=document.createElement("div");ask.className="ask";ask.textContent="Куда положить"+(queue.length>1?" (ещё в очереди: "+(queue.length-1)+")":"");
+  var o=document.createElement("div");o.className="opts";
+  function place(target){queue.shift();addCard(q.src,q.name,target);renderSide();}
+  document.querySelectorAll(".tier").forEach(function(t){
+    var l=t.querySelector(".label"),b=document.createElement("button");
+    b.textContent=l.textContent;b.style.background=l.style.background;
+    b.onclick=function(){place(t.querySelector(".drop"))};o.appendChild(b);
+  });
+  var d=document.createElement("button");d.className="down";d.textContent="Вниз, под таблицу";d.onclick=function(){place(pool)};o.appendChild(d);
+  var sk=document.createElement("button");sk.className="skip";sk.textContent="Убрать эту картинку";sk.onclick=function(){queue.shift();renderSide()};
+  side.appendChild(im);side.appendChild(inp);side.appendChild(ask);side.appendChild(o);side.appendChild(sk);
+}
+document.getElementById("file").onchange=function(e){addFiles(e.target.files);e.target.value="";};
+document.getElementById("addTier").onclick=function(){addTier("Новый",Math.floor(Math.random()*COLORS.length))};
+document.getElementById("reset").onclick=function(){document.querySelectorAll(".drop .card").forEach(function(c){pool.appendChild(c)})};
+PAL.forEach(function(col){var i=document.createElement("i");i.style.background=col;i.onclick=function(){if(palFor){palFor.style.background=col;renderSide();}pal.style.display="none";};pal.appendChild(i)});
+var cp=document.createElement("input");cp.type="color";cp.title="Свой цвет";cp.oninput=function(){if(palFor)palFor.style.background=cp.value};cp.onchange=function(){renderSide();pal.style.display="none"};pal.appendChild(cp);
+document.addEventListener("click",function(e){if(!pal.contains(e.target))pal.style.display="none"});
+dropZone(pool);
+window.addEventListener("dragover",function(e){e.preventDefault()});
+window.addEventListener("drop",function(e){e.preventDefault();if(!dragged&&e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
+
+var SZ={cs:88,fs:12,ls:20,lw:96,mw:1180},SZ0=Object.assign({},SZ);
+function applySize(){var r=document.documentElement.style;["cs","fs","ls","lw","mw"].forEach(function(k){r.setProperty("--"+k,SZ[k]+"px")})}
+function syncSz(){Object.keys(SZ).forEach(function(k){document.getElementById("r-"+k).value=SZ[k];document.getElementById("v-"+k).textContent=SZ[k]+" px"});applySize()}
+Object.keys(SZ).forEach(function(k){document.getElementById("r-"+k).oninput=function(){SZ[k]=+this.value;syncSz();saveSoon()}});
+document.getElementById("szReset").onclick=function(){Object.assign(SZ,SZ0);syncSz();saveSoon()};
+syncSz();
+var ready=false,timer=null,titleEl=document.getElementById("title"),st=document.getElementById("st");
+function cardsOf(el){return Array.prototype.map.call(el.querySelectorAll(":scope > .card"),function(c){return {src:c.querySelector("img").src,cap:c.querySelector(".cap").textContent}})}
+function snapshot(){return {title:titleEl.value,sz:Object.assign({},SZ),queue:queue,pool:cardsOf(pool),tiers:Array.prototype.map.call(tiers.children,function(t){var l=t.querySelector(".label");return {name:l.textContent,color:l.style.background,cards:cardsOf(t.querySelector(".drop"))}})}}
+function idb(){return new Promise(function(res,rej){var r=indexedDB.open("tierlist",1);r.onupgradeneeded=function(){r.result.createObjectStore("s")};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}})}
+function saveNow(){
+  if(!ready)return;
+  try{idb().then(function(db){var tx=db.transaction("s","readwrite");tx.objectStore("s").put(snapshot(),"main");tx.oncomplete=function(){st.textContent="Сохранено";};tx.onerror=function(){st.textContent="Не удалось сохранить"}}).catch(function(){st.textContent="Автосохранение недоступно"});}catch(e){st.textContent="Автосохранение недоступно"}
+}
+function saveSoon(){if(!ready)return;st.textContent="…";clearTimeout(timer);timer=setTimeout(saveNow,500)}
+function loadState(){return new Promise(function(res){try{idb().then(function(db){var r=db.transaction("s").objectStore("s").get("main");r.onsuccess=function(){res(r.result||null)};r.onerror=function(){res(null)}}).catch(function(){res(null)})}catch(e){res(null)}})}
+function build(d){
+  tiers.innerHTML="";pool.querySelectorAll(".card").forEach(function(c){c.remove()});
+  titleEl.value=d.title||"Мой тир-лист";queue=d.queue||[];if(d.sz){Object.assign(SZ,d.sz);syncSz();}
+  d.tiers.forEach(function(t){addTier(t.name,t.color);var dz=tiers.lastElementChild.querySelector(".drop");t.cards.forEach(function(c){addCard(c.src,c.cap,dz)})});
+  (d.pool||[]).forEach(function(c){addCard(c.src,c.cap,pool)});
+  renderSide();
+}
+function defaults(){build({tiers:DEF.map(function(d){return {name:d[0],color:COLORS[d[1]],cards:[]}}),pool:[],queue:[]})}
+var mo=new MutationObserver(saveSoon),mopt={subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:["style"]};
+mo.observe(tiers,mopt);mo.observe(pool,mopt);
+titleEl.addEventListener("input",saveSoon);
+var oldRender=renderSide;renderSide=function(){oldRender();saveSoon()};
+defaults();
+var restored=false;
+setTimeout(function(){if(!restored){restored=true;ready=true}},2000);
+loadState().then(function(d){
+  if(restored)return;restored=true;
+  if(d&&d.tiers&&d.tiers.length){build(d);st.textContent="Прогресс восстановлен";}
+  ready=true;
+});
+
+document.getElementById("clear").onclick=function(){if(confirm("Начать заново? Текущий тир-лист будет удалён.")){defaults();saveNow();}};
+
+function wrap(ctx,text,maxW,maxLines){
+  var out=[],line="";
+  (text||"").split(/\s+/).forEach(function(w){
+    while(ctx.measureText(w).width>maxW&&w.length>1){var i=w.length-1;while(i>1&&ctx.measureText(w.slice(0,i)).width>maxW)i--;if(line){out.push(line);line=""}out.push(w.slice(0,i));w=w.slice(i)}
+    var t=line?line+" "+w:w;
+    if(ctx.measureText(t).width>maxW&&line){out.push(line);line=w}else line=t;
+  });
+  if(line)out.push(line);
+  if(maxLines&&out.length>maxLines){out=out.slice(0,maxLines);out[maxLines-1]=out[maxLines-1].replace(/.{0,2}$/,"…")}
+  return out;
+}
+function loadImg(src){return new Promise(function(res){var i=new Image();i.onload=function(){res(i)};i.onerror=function(){res(null)};i.src=src})}
+async function exportPng(){
+  var snap=snapshot(),Z=SZ,W=1000,P=4,TH=64,LW=Math.round(Z.lw*1.35),CW=Math.round(Z.cs*1.25),IH=CW,LF=Math.round(Z.ls*1.2),CF=Math.round(Z.fs*1.1),CH=IH+Math.round(CF*2.6)+10;
+  W=Math.max(W,LW+CW+3*P);
+  var cols=Math.floor((W-LW-P)/(CW+P));
+  var imgs={};
+  for(var t of snap.tiers)for(var c of t.cards)if(!imgs[c.src])imgs[c.src]=await loadImg(c.src);
+  var heights=snap.tiers.map(function(t){return Math.max(IH+2*P,Math.ceil(t.cards.length/cols)*(CH+P)+P)});
+  var H=TH+heights.reduce(function(a,b){return a+b+2},0)+2;
+  var cv=document.createElement("canvas");cv.width=W;cv.height=H;
+  var ctx=cv.getContext("2d");
+  ctx.fillStyle="#17171b";ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#fff";ctx.font="bold 30px Trebuchet MS, Segoe UI, sans-serif";ctx.textBaseline="middle";ctx.textAlign="left";
+  ctx.fillText(snap.title||"Тир-лист",12,TH/2);
+  var y=TH;
+  snap.tiers.forEach(function(t,ti){
+    var h=heights[ti];
+    ctx.fillStyle=t.color;ctx.fillRect(0,y,LW,h);
+    ctx.fillStyle="#111";ctx.font="bold "+LF+"px Trebuchet MS, Segoe UI, sans-serif";ctx.textAlign="center";
+    var ls=wrap(ctx,t.name,LW-16,5),lh=Math.round(LF*1.2),sy=y+h/2-(ls.length-1)*lh/2;
+    ls.forEach(function(l,i){ctx.fillText(l,LW/2,sy+i*lh)});
+    ctx.fillStyle="#101014";ctx.fillRect(LW,y,W-LW,h);
+    t.cards.forEach(function(c,i){
+      var x=LW+P+(i%cols)*(CW+P),yy=y+P+Math.floor(i/cols)*(CH+P);
+      ctx.fillStyle="#2a2a31";ctx.fillRect(x,yy,CW,CH);
+      var im=imgs[c.src];
+      if(im){var k=Math.max(CW/im.width,IH/im.height),sw=CW/k,sh=IH/k;ctx.drawImage(im,(im.width-sw)/2,(im.height-sh)/2,sw,sh,x,yy,CW,IH)}
+      ctx.fillStyle="#fff";ctx.font=CF+"px Trebuchet MS, Segoe UI, sans-serif";ctx.textAlign="center";
+      wrap(ctx,c.cap,CW-8,2).forEach(function(l,j){ctx.fillText(l,x+CW/2,yy+IH+Math.round(CF*0.9)+4+j*Math.round(CF*1.3))});
+    });
+    y+=h+2;
+  });
+  return new Promise(function(res){cv.toBlob(res,"image/png")});
+}
+document.getElementById("exp").onclick=async function(){
+  var b=this;b.disabled=true;
+  try{
+    var blob=await exportPng();
+    var dl=window.claude&&claude.use?await claude.use("downloads"):null;
+    if(!dl){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=((titleEl.value||"tierlist").replace(/[^\wа-яА-ЯёЁ -]+/g,"").trim()||"tierlist")+".png";document.body.appendChild(a);a.click();a.remove();st.textContent="Файл сохранён";}
+    else{await dl.save({filename:((titleEl.value||"tierlist").replace(/[^\wа-яА-ЯёЁ -]+/g,"").trim()||"tierlist")+".png",data:blob});st.textContent="Файл сохранён";}
+  }catch(e){if(!e||e.code!=="declined")st.textContent="Не удалось экспортировать"}
+  b.disabled=false;
+};
+
+</script>
+</body>
+</html>
