@@ -25,6 +25,16 @@ aside .opts button{font:inherit;font-weight:700;border:0;border-radius:6px;paddi
 aside .opts button.down{background:transparent;color:var(--ink);border:2px dashed var(--line);text-align:center}
 aside .skip{margin-top:8px;background:none;border:0;color:var(--mute);cursor:pointer;font:inherit;text-decoration:underline;padding:0}
 .pal{width:250px}
+.ban{background:#ffd54a;color:#111;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ban button{font:inherit;font-size:13px;border:0;border-radius:6px;padding:5px 10px;cursor:pointer;background:#111;color:#fff}
+.ban[hidden],#gal[hidden],#pub[hidden]{display:none}
+#gal{margin-top:22px}
+.gh{font-size:18px;margin:0 0 8px}
+.gl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:8px}
+.gl .gt{flex:1 1 180px;min-width:0}.gl .gt b{display:block;overflow-wrap:anywhere}.gl .gt small{color:var(--mute)}
+.gl button{font:inherit;font-size:13px;padding:6px 10px;border-radius:6px;cursor:pointer;border:2px solid var(--line);background:transparent;color:var(--ink)}
+.card.ins{box-shadow:-5px 0 0 #fff,-6px 0 0 1px #000}
+.drop.ins-end,.pool.ins-end{box-shadow:inset -5px 0 0 #fff}
 #st{color:var(--mute);font-size:14px;align-self:center}
 .pal input[type=color]{width:100%;height:32px;border:0;padding:0;background:none;cursor:pointer}
 h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
@@ -68,10 +78,11 @@ button.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--li
 <body>
 <main>
 <h1>Тир-лист</h1>
-<p class="sub">Загрузите картинку справа, подпишите её и выберите, в какой ряд положить. Потом её можно перетаскивать. Название ряда — клик, цвет — ◐.</p>
+<p class="sub">Загрузите картинку справа, подпишите её и выберите, в какой ряд положить. Потом её можно перетаскивать, в том числе в середину ряда: белая полоса показывает, куда она встанет. Название ряда — клик, цвет — ◐.</p>
 <input class="title" id="title" value="Мой тир-лист" aria-label="Название">
 <div class="wrap">
 <div>
+<div class="ban" id="ban" hidden></div>
 <div class="set" id="set">
 <label>Размер картинок: <b id="v-cs"></b><input type="range" id="r-cs" min="56" max="220" step="2"></label>
 <label>Текст подписей: <b id="v-fs"></b><input type="range" id="r-fs" min="9" max="30"></label>
@@ -85,10 +96,12 @@ button.btn.alt{background:transparent;color:var(--ink);border:2px solid var(--li
 <button class="btn alt" id="addTier">Добавить ряд</button>
 <button class="btn alt" id="reset">Вернуть всё вниз</button>
 <button class="btn" id="exp">Скачать PNG</button>
+<button class="btn" id="pub" hidden>Сохранить в общий список</button>
 <button class="btn alt" id="clear">Новый тир-лист</button>
 <span id="st"></span>
 </div>
 <div class="pool" id="pool"><h3>Под таблицей</h3></div>
+<section id="gal" hidden><h2 class="gh">Сохранённые тир-листы</h2><div id="galList">Загрузка…</div></section>
 </div>
 <aside>
 <h2>Новая картинка</h2>
@@ -106,13 +119,17 @@ var queue=[],side=document.getElementById("side");
 var DEF=[["S",0],["A",1],["B",2],["C",4],["D",7],["F",9]];
 var tiers=document.getElementById("tiers"),pool=document.getElementById("pool"),pal=document.getElementById("pal"),dragged=null,palFor=null;
 
+function slot(el,x,y,skip){var cs=el.querySelectorAll(":scope > .card");for(var i=0;i<cs.length;i++){var c=cs[i];if(c===skip)continue;var r=c.getBoundingClientRect();if(y<r.top||(y<=r.bottom&&x<r.left+r.width/2))return c}return null}
+function clearIns(){document.querySelectorAll(".ins,.ins-end").forEach(function(n){n.classList.remove("ins","ins-end")})}
+var dragQ=null;
 function dropZone(el){
-  el.addEventListener("dragover",function(e){e.preventDefault();el.classList.add("over")});
-  el.addEventListener("dragleave",function(){el.classList.remove("over")});
+  el.addEventListener("dragover",function(e){e.preventDefault();el.classList.add("over");clearIns();var r=slot(el,e.clientX,e.clientY,dragged);if(r)r.classList.add("ins");else el.classList.add("ins-end")});
+  el.addEventListener("dragleave",function(e){if(!el.contains(e.relatedTarget)){el.classList.remove("over");clearIns()}});
   el.addEventListener("drop",function(e){
-    e.preventDefault();el.classList.remove("over");
-    if(dragged){el.appendChild(dragged);}
-    
+    e.preventDefault();e.stopPropagation();el.classList.remove("over");
+    var r=slot(el,e.clientX,e.clientY,dragged);clearIns();
+    if(dragged){if(r!==dragged)el.insertBefore(dragged,r)}
+    else if(dragQ){dragQ.place(el,r)}
   });
 }
 function addTier(name,ci){
@@ -131,7 +148,7 @@ function addTier(name,ci){
   [c,u,w,x].forEach(function(b){tl.appendChild(b)});
   t.appendChild(l);t.appendChild(d);t.appendChild(tl);tiers.appendChild(t);renderSide();
 }
-function addCard(src,cap,target){
+function addCard(src,cap,target,ref){
   var c=document.createElement("div");c.className="card";c.draggable=true;
   var im=document.createElement("img");im.src=src;im.alt="";
   var p=document.createElement("div");p.className="cap";p.contentEditable="true";p.textContent=cap||"";
@@ -140,8 +157,8 @@ function addCard(src,cap,target){
   p.addEventListener("blur",function(){c.draggable=true});
   var x=document.createElement("button");x.className="x";x.textContent="×";x.title="Удалить";x.onclick=function(){c.remove()};
   c.addEventListener("dragstart",function(e){dragged=c;c.classList.add("drag");e.dataTransfer.setData("text/plain","card");});
-  c.addEventListener("dragend",function(){dragged=null;c.classList.remove("drag")});
-  c.appendChild(im);c.appendChild(p);c.appendChild(x);(target||pool).appendChild(c);
+  c.addEventListener("dragend",function(){dragged=null;c.classList.remove("drag");clearIns()});
+  c.appendChild(im);c.appendChild(p);c.appendChild(x);(target||pool).insertBefore(c,ref||null);
 }
 function readImg(f){
   return new Promise(function(res){
@@ -150,7 +167,7 @@ function readImg(f){
       var m=Math.max(im.width,im.height),k=Math.min(1,480/m),c=document.createElement("canvas");
       c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);
       c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
-      res(c.toDataURL("image/webp",.9));
+      var u=c.toDataURL("image/webp",.9);if(u.indexOf("data:image/webp")!==0)u=c.toDataURL("image/jpeg",.85);res(u);
     };
     im.onerror=function(){URL.revokeObjectURL(u);res(null)};im.src=u;
   });
@@ -170,7 +187,9 @@ function renderSide(){
   inp.oninput=function(){q.name=inp.value};
   var ask=document.createElement("div");ask.className="ask";ask.textContent="Куда положить"+(queue.length>1?" (ещё в очереди: "+(queue.length-1)+")":"");
   var o=document.createElement("div");o.className="opts";
-  function place(target){queue.shift();addCard(q.src,q.name,target);renderSide();}
+  var pos=document.createElement("select");pos.className="cin";pos.innerHTML='<option value="end">В конец ряда</option><option value="start">В начало ряда</option>';
+  function place(target,ref){queue.shift();if(ref===undefined&&pos.value==="start")ref=target.querySelector(":scope > .card");addCard(q.src,q.name,target,ref||null);renderSide();}
+  im.draggable=true;im.ondragstart=function(){dragQ={place:place}};im.ondragend=function(){dragQ=null;clearIns()};
   document.querySelectorAll(".tier").forEach(function(t){
     var l=t.querySelector(".label"),b=document.createElement("button");
     b.textContent=l.textContent;b.style.background=l.style.background;
@@ -178,7 +197,7 @@ function renderSide(){
   });
   var d=document.createElement("button");d.className="down";d.textContent="Вниз, под таблицу";d.onclick=function(){place(pool)};o.appendChild(d);
   var sk=document.createElement("button");sk.className="skip";sk.textContent="Убрать эту картинку";sk.onclick=function(){queue.shift();renderSide()};
-  side.appendChild(im);side.appendChild(inp);side.appendChild(ask);side.appendChild(o);side.appendChild(sk);
+  side.appendChild(im);side.appendChild(inp);side.appendChild(pos);side.appendChild(ask);side.appendChild(o);side.appendChild(sk);
 }
 document.getElementById("file").onchange=function(e){addFiles(e.target.files);e.target.value="";};
 document.getElementById("addTier").onclick=function(){addTier("Новый",Math.floor(Math.random()*COLORS.length))};
@@ -190,6 +209,7 @@ dropZone(pool);
 window.addEventListener("dragover",function(e){e.preventDefault()});
 window.addEventListener("drop",function(e){e.preventDefault();if(!dragged&&e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
 
+var KEY="main",curId=null;
 var SZ={cs:88,fs:12,ls:20,lw:96,mw:1180},SZ0=Object.assign({},SZ);
 function applySize(){var r=document.documentElement.style;["cs","fs","ls","lw","mw"].forEach(function(k){r.setProperty("--"+k,SZ[k]+"px")})}
 function syncSz(){Object.keys(SZ).forEach(function(k){document.getElementById("r-"+k).value=SZ[k];document.getElementById("v-"+k).textContent=SZ[k]+" px"});applySize()}
@@ -202,10 +222,10 @@ function snapshot(){return {title:titleEl.value,sz:Object.assign({},SZ),queue:qu
 function idb(){return new Promise(function(res,rej){var r=indexedDB.open("tierlist",1);r.onupgradeneeded=function(){r.result.createObjectStore("s")};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}})}
 function saveNow(){
   if(!ready)return;
-  try{idb().then(function(db){var tx=db.transaction("s","readwrite");tx.objectStore("s").put(snapshot(),"main");tx.oncomplete=function(){st.textContent="Сохранено";};tx.onerror=function(){st.textContent="Не удалось сохранить"}}).catch(function(){st.textContent="Автосохранение недоступно"});}catch(e){st.textContent="Автосохранение недоступно"}
+  try{idb().then(function(db){var tx=db.transaction("s","readwrite");tx.objectStore("s").put(snapshot(),KEY);tx.oncomplete=function(){st.textContent="Сохранено";};tx.onerror=function(){st.textContent="Не удалось сохранить"}}).catch(function(){st.textContent="Автосохранение недоступно"});}catch(e){st.textContent="Автосохранение недоступно"}
 }
 function saveSoon(){if(!ready)return;st.textContent="…";clearTimeout(timer);timer=setTimeout(saveNow,500)}
-function loadState(){return new Promise(function(res){try{idb().then(function(db){var r=db.transaction("s").objectStore("s").get("main");r.onsuccess=function(){res(r.result||null)};r.onerror=function(){res(null)}}).catch(function(){res(null)})}catch(e){res(null)}})}
+function loadState(k){return new Promise(function(res){try{idb().then(function(db){var r=db.transaction("s").objectStore("s").get(k||"main");r.onsuccess=function(){res(r.result||null)};r.onerror=function(){res(null)}}).catch(function(){res(null)})}catch(e){res(null)}})}
 function build(d){
   tiers.innerHTML="";pool.querySelectorAll(".card").forEach(function(c){c.remove()});
   titleEl.value=d.title||"Мой тир-лист";queue=d.queue||[];if(d.sz){Object.assign(SZ,d.sz);syncSz();}
@@ -222,12 +242,91 @@ defaults();
 var restored=false;
 setTimeout(function(){if(!restored){restored=true;ready=true}},2000);
 loadState().then(function(d){
-  if(restored)return;restored=true;
+  if(restored)return;restored=true;if(KEY!=="main")return;
   if(d&&d.tiers&&d.tiers.length){build(d);st.textContent="Прогресс восстановлен";}
   ready=true;
 });
 
-document.getElementById("clear").onclick=function(){if(confirm("Начать заново? Текущий тир-лист будет удалён.")){defaults();saveNow();}};
+document.getElementById("clear").onclick=function(){if(confirm("Начать заново? Текущий тир-лист будет удалён.")){KEY="main";curId=null;banner();defaults();saveNow();}};
+
+var cdb=null,usr=null,srcId=new Map(),ban=document.getElementById("ban"),gal=document.getElementById("gal"),galList=document.getElementById("galList"),pub=document.getElementById("pub");
+function rid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36)}
+function switchTo(key,fn){clearTimeout(timer);ready=false;KEY=key;Promise.resolve().then(fn).then(function(){ready=true;saveSoon()},function(){ready=true})}
+function banner(){
+  ban.innerHTML="";ban.hidden=KEY==="main";if(KEY==="main")return;
+  var t=document.createElement("span");t.textContent="Вы смотрите сохранённый тир-лист. Ваши правки остаются только у вас, оригинал не меняется.";
+  var a=document.createElement("button");a.textContent="Вернуть оригинал";a.onclick=function(){if(confirm("Отменить ваши правки этого тир-листа?"))openList(KEY.slice(5),true)};
+  var b=document.createElement("button");b.textContent="К моему тир-листу";b.onclick=function(){openMain()};
+  ban.appendChild(t);ban.appendChild(a);ban.appendChild(b);
+}
+function openMain(){curId=null;switchTo("main",function(){return loadState("main").then(function(d){if(d&&d.tiers)build(d);else defaults()})});banner();try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}}
+function fetchList(id){
+  if(!cdb)return Promise.resolve(null);
+  return cdb.doc("lists/"+id).get().then(function(sn){
+    if(!sn.exists)return null;var d=sn.data(),ids={};
+    (d.tiers||[]).forEach(function(t){t.cards.forEach(function(c){ids[c.i]=1})});(d.pool||[]).forEach(function(c){ids[c.i]=1});
+    return Promise.all(Object.keys(ids).map(function(k){return cdb.doc("imgs/"+k).get().then(function(x){var v=x.exists?x.data().d:"";if(v)srcId.set(v,k);return [k,v]})})).then(function(pr){
+      var m={};pr.forEach(function(p){m[p[0]]=p[1]});
+      function cv(a){return a.map(function(c){return {src:m[c.i],cap:c.c}}).filter(function(c){return c.src})}
+      return {title:d.title,sz:d.sz,queue:[],tiers:d.tiers.map(function(t){return {name:t.name,color:t.color,cards:cv(t.cards)}}),pool:cv(d.pool||[])};
+    });
+  }).catch(function(){return null});
+}
+function openList(id,fresh){
+  curId=null;var k="copy-"+id;
+  switchTo(k,function(){
+    return (fresh?Promise.resolve(null):loadState(k)).then(function(d){
+      if(d&&d.tiers)return build(d);
+      return fetchList(id).then(function(d2){if(d2)build(d2);else{st.textContent="Тир-лист не найден";openMain()}});
+    });
+  });
+  banner();
+}
+function editList(id){
+  if(!confirm("Заменить ваш текущий тир-лист этим, чтобы его редактировать?"))return;
+  switchTo("main",function(){return fetchList(id).then(function(d){if(d){build(d);curId=id}})});banner();
+}
+function linkFor(id){return location.href.split("#")[0]+"#t-"+id}
+function copyLink(id){var l=linkFor(id);(navigator.clipboard?navigator.clipboard.writeText(l):Promise.reject()).then(function(){st.textContent="Ссылка скопирована"},function(){prompt("Скопируйте ссылку:",l)})}
+function renderGal(docs){
+  galList.innerHTML="";
+  if(!docs.length){galList.textContent="Пока ничего не сохранено.";return}
+  docs.forEach(function(sn){
+    var d=sn.data(),id=sn.id,r=document.createElement("div");r.className="gl";
+    var t=document.createElement("div");t.className="gt";var b=document.createElement("b");b.textContent=d.title||"Без названия";
+    var m=document.createElement("small");m.textContent=(d.n||0)+" карт. · "+new Date(d.updated||0).toLocaleDateString("ru-RU");t.appendChild(b);t.appendChild(m);r.appendChild(t);
+    function btn(txt,fn){var x=document.createElement("button");x.textContent=txt;x.onclick=fn;r.appendChild(x)}
+    btn("Открыть",function(){openList(id,false)});
+    btn("Ссылка",function(){copyLink(id)});
+    if(usr&&usr.isOwner()){btn("Редактировать",function(){editList(id)});btn("Удалить",function(){if(confirm("Удалить «"+(d.title||"")+"» для всех?"))cdb.doc("lists/"+id).delete()})}
+    galList.appendChild(r);
+  });
+}
+async function publish(){
+  if(!cdb)return;pub.disabled=true;st.textContent="Сохраняю…";
+  try{
+    var sn=snapshot(),id=curId||"l"+rid(),n=0;
+    var ids=async function(a){var out=[];for(var c of a){var k=srcId.get(c.src);if(!k){k="i"+rid();await cdb.doc("imgs/"+k).set({d:c.src});srcId.set(c.src,k)}out.push({i:k,c:c.cap});n++}return out};
+    var tr=[];for(var t of sn.tiers)tr.push({name:t.name,color:t.color,cards:await ids(t.cards)});
+    var pl=await ids(sn.pool);
+    await cdb.doc("lists/"+id).set({title:sn.title||"Без названия",sz:sn.sz,tiers:tr,pool:pl,updated:Date.now(),n:n});
+    curId=id;st.textContent="Сохранено в общий список";
+  }catch(e){st.textContent="Не удалось сохранить"+(e&&e.code?" ("+e.code+")":"")}
+  pub.disabled=false;
+}
+pub.onclick=publish;
+function checkHash(){var m=/^#t-(\w+)$/.exec(location.hash);if(m&&cdb&&KEY!=="copy-"+m[1])openList(m[1],false)}
+window.addEventListener("hashchange",checkHash);
+if(window.claude&&claude.use){
+  Promise.all([claude.use("db"),claude.use("user")]).then(function(r){
+    cdb=r[0];usr=r[1];
+    if(!cdb){if(/^#t-/.test(location.hash))st.textContent="Чтобы увидеть этот тир-лист, откройте ссылку в claude.ai под своим аккаунтом";return}
+    gal.hidden=false;pub.hidden=!(usr&&usr.isOwner());
+    var tm=setTimeout(function(){galList.textContent="Не удалось загрузить список"},10000);
+    cdb.collection("lists").orderBy("updated","desc").limit(50).onSnapshot(function(q){clearTimeout(tm);renderGal(q.docs)},function(){clearTimeout(tm);galList.textContent="Список недоступен"});
+    checkHash();
+  }).catch(function(){});
+}
 
 function wrap(ctx,text,maxW,maxLines){
   var out=[],line="";
